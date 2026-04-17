@@ -21,6 +21,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.androidapp.data.dto.MahaiaDto
 import com.example.androidapp.presentation.components.AppTopBar
+import com.example.androidapp.ui.theme.AppColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,7 +43,7 @@ fun MahaiakPantaila(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .background(Color(0xFFF5F5F5))
+                .background(AppColors.Background)
         ) {
             if (state.isLoading) {
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
@@ -51,8 +52,11 @@ fun MahaiakPantaila(
                     modifier = Modifier.align(Alignment.Center),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(text = state.error ?: "Unknown error", color = Color.Red, modifier = Modifier.padding(16.dp))
-                    Button(onClick = { viewModel.loadTables() }) {
+                    Text(text = state.error ?: "Unknown error", color = AppColors.Danger, modifier = Modifier.padding(16.dp))
+                    Button(
+                        onClick = { viewModel.loadTables() },
+                        colors = ButtonDefaults.buttonColors(containerColor = AppColors.Primary)
+                    ) {
                         Text("Saiatu berriro")
                     }
                 }
@@ -78,7 +82,7 @@ fun MahaiakPantaila(
 fun TableCard(mahaia: MahaiaDto) {
     Card(
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = AppColors.Surface),
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(1f)
@@ -94,26 +98,27 @@ fun TableCard(mahaia: MahaiaDto) {
                 text = "${mahaia.zenbakia}",
                 fontSize = 40.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF1A1F2C)
+                color = AppColors.TextStrong
             )
             Text(
                 text = "Mahaia",
                 fontSize = 14.sp,
-                color = Color.Gray
+                color = AppColors.TextSecondary
             )
             Spacer(modifier = Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
                     imageVector = Icons.Default.Person,
                     contentDescription = "Pertsonak",
-                    tint = Color(0xFFF57C00),
+                    tint = AppColors.Secondary,
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
                     text = "${mahaia.pertsonaKopurua}",
                     fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    color = AppColors.TextPrimary
                 )
             }
             Spacer(modifier = Modifier.height(4.dp))
@@ -121,14 +126,14 @@ fun TableCard(mahaia: MahaiaDto) {
                 Icon(
                     imageVector = Icons.Default.LocationOn,
                     contentDescription = "Kokapena",
-                    tint = Color.Gray,
+                    tint = AppColors.TextSecondary,
                     modifier = Modifier.size(16.dp)
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
                     text = mahaia.kokapena,
                     fontSize = 14.sp,
-                    color = Color.Gray
+                    color = AppColors.TextSecondary
                 )
             }
         }

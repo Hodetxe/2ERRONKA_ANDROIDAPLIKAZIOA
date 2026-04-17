@@ -19,6 +19,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.androidapp.data.dto.ErreserbaDto
 import com.example.androidapp.presentation.components.AppTopBar
+import com.example.androidapp.ui.theme.AppColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,12 +41,12 @@ fun ErreserbakPantaila(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .background(Color(0xFFFFF3E0))
+                .background(AppColors.Background)
         ) {
             if (egoera.isLoading) {
                 CircularProgressIndicator(
                     modifier = Modifier.align(Alignment.Center),
-                    color = Color(0xFFF57C00)
+                    color = AppColors.Primary
                 )
             } else if (egoera.error != null) {
                 Column(
@@ -69,7 +70,7 @@ fun ErreserbakPantaila(
                     Spacer(modifier = Modifier.height(16.dp))
                     Button(
                         onClick = { viewModel.lortuDatuak() },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF57C00))
+                        colors = ButtonDefaults.buttonColors(containerColor = AppColors.Primary)
                     ) {
                         Text("Saiatu berriro")
                     }
@@ -93,7 +94,7 @@ fun ErreserbakPantaila(
 fun ErreserbaTxartela(erreserba: ErreserbaDto, mahaiaZenbakia: Int?) {
     Card(
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = AppColors.Surface),
         shape = RoundedCornerShape(16.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -111,14 +112,14 @@ fun ErreserbaTxartela(erreserba: ErreserbaDto, mahaiaZenbakia: Int?) {
                     text = erreserba.bezeroIzena,
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFFE65100)
+                    color = AppColors.TextStrong
                 )
                 StatusChip(paid = erreserba.ordainduta == 1)
             }
             
             Divider(
                 modifier = Modifier.padding(vertical = 12.dp),
-                color = Color(0xFFFFE0B2)
+                color = AppColors.Border
             )
 
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -146,11 +147,11 @@ fun ErreserbaTxartela(erreserba: ErreserbaDto, mahaiaZenbakia: Int?) {
 @Composable
 fun StatusChip(paid: Boolean) {
     Surface(
-        color = if (paid) Color(0xFFE8F5E9) else Color(0xFFFFEBEE),
+        color = if (paid) AppColors.SuccessSoft else AppColors.Danger.copy(alpha = 0.10f),
         shape = RoundedCornerShape(16.dp),
         border = androidx.compose.foundation.BorderStroke(
             1.dp,
-            if (paid) Color(0xFF4CAF50) else Color(0xFFEF5350)
+            if (paid) AppColors.Success else AppColors.Danger
         )
     ) {
         Row(
@@ -161,13 +162,13 @@ fun StatusChip(paid: Boolean) {
             Icon(
                 imageVector = if (paid) Icons.Default.CheckCircle else Icons.Default.Warning,
                 contentDescription = null,
-                tint = if (paid) Color(0xFF4CAF50) else Color(0xFFEF5350),
+                tint = if (paid) AppColors.Success else AppColors.Danger,
                 modifier = Modifier.size(16.dp)
             )
             Text(
                 text = if (paid) "Ordainduta" else "Ordaindu gabe",
                 style = MaterialTheme.typography.labelMedium,
-                color = if (paid) Color(0xFF2E7D32) else Color(0xFFC62828),
+                color = if (paid) AppColors.Success else AppColors.DangerHover,
                 fontWeight = FontWeight.Bold
             )
         }
@@ -183,13 +184,13 @@ fun ErreserbaDetailItem(icon: ImageVector, text: String) {
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = Color(0xFFF57C00),
+            tint = AppColors.Secondary,
             modifier = Modifier.size(20.dp)
         )
         Text(
             text = text,
             style = MaterialTheme.typography.bodyMedium,
-            color = Color.Black.copy(alpha = 0.7f)
+            color = AppColors.TextSecondary
         )
     }
 }

@@ -10,6 +10,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.shape.CircleShape
+import com.example.androidapp.ui.theme.AppColors
 
 @Composable
 fun Teklatua(onKeyPress: (String) -> Unit) {
@@ -35,8 +36,8 @@ fun Teklatua(onKeyPress: (String) -> Unit) {
                             modifier = Modifier.size(80.dp),
                             shape = CircleShape,
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isDelete) Color(0xFFF57C00) else Color.White,
-                                contentColor = if (isDelete) Color.White else Color(0xFFE65100)
+                                containerColor = if (isDelete) AppColors.Primary else AppColors.Surface,
+                                contentColor = if (isDelete) AppColors.Surface else AppColors.TextPrimary
                             ),
                             elevation = ButtonDefaults.buttonElevation(
                                 defaultElevation = 4.dp,

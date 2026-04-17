@@ -4,7 +4,6 @@ package com.example.androidapp
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.material3.MaterialTheme
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -19,12 +18,13 @@ import com.example.androidapp.presentation.mahaiak.MahaiakPantaila
 import com.example.androidapp.presentation.menu.MenuPantaila
 import com.example.androidapp.presentation.txata.TxataAukeratuPantaila
 import com.example.androidapp.presentation.txata.TxataPantaila
+import com.example.androidapp.ui.theme.AppTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            MaterialTheme {
+            AppTheme {
                 val navController = rememberNavController()
                 NavHost(navController = navController, startDestination = "login") {
                     composable("login") { LoginPantaila(navController) }

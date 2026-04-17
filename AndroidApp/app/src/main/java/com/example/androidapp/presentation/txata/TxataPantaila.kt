@@ -28,6 +28,7 @@ import com.example.androidapp.presentation.components.AppTopBar
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import com.example.androidapp.ui.theme.AppColors
 
 data class Message(
     val id: Int,
@@ -89,20 +90,20 @@ fun TxataPantaila(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .background(Color(0xFFFFF3E0)) // Light beige
+                .background(AppColors.Background)
         ) {
             // Connection Status
             if (!viewModel.isConnected) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Color(0xFFFFCCBC))
+                        .background(AppColors.Danger.copy(alpha = 0.12f))
                         .padding(8.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = viewModel.connectionError ?: "Konektatzen...",
-                        color = Color.Black,
+                        color = AppColors.TextPrimary,
                         fontSize = 12.sp
                     )
                 }
@@ -144,15 +145,15 @@ fun TxataPantaila(
                         placeholder = {
                             Text(
                                 text = "Idatzi mezua...",
-                                color = Color.Black.copy(alpha = 0.6f),
+                                color = AppColors.TextSecondary,
                                 fontSize = 14.sp
                             )
                         },
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = Color(0xFFE65100).copy(alpha = 0.1f),
-                            unfocusedContainerColor = Color(0xFFE65100).copy(alpha = 0.1f),
-                            focusedBorderColor = Color(0xFF42A5F5),
-                            unfocusedBorderColor = Color(0xFF42A5F5),
+                            focusedContainerColor = AppColors.Secondary.copy(alpha = 0.10f),
+                            unfocusedContainerColor = AppColors.Secondary.copy(alpha = 0.10f),
+                            focusedBorderColor = AppColors.Primary,
+                            unfocusedBorderColor = AppColors.Border,
                         ),
                         shape = RoundedCornerShape(4.dp)
                     )
@@ -163,7 +164,7 @@ fun TxataPantaila(
                     Box(
                         modifier = Modifier
                             .size(50.dp)
-                            .background(Color(0xFFF57C00), CircleShape)
+                            .background(AppColors.Primary, CircleShape)
                             .clickable {
                                 if (messageText.isNotBlank()) {
                                     viewModel.sendMessage(messageText)
@@ -175,7 +176,7 @@ fun TxataPantaila(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.Send,
                             contentDescription = "Bidali",
-                            tint = Color.Black,
+                            tint = AppColors.Surface,
                             modifier = Modifier.size(24.dp)
                         )
                     }
@@ -206,19 +207,19 @@ fun MessageItem(message: Message) {
             modifier = Modifier
                 .widthIn(max = 280.dp)
                 .background(
-                    color = if (message.isMe) Color(0xFFFFE0B2) else Color.White,
+                    color = if (message.isMe) AppColors.Secondary.copy(alpha = 0.12f) else AppColors.Surface,
                     shape = RoundedCornerShape(16.dp)
                 )
                 .border(
                     width = 1.dp,
-                    color = if (message.isMe) Color(0xFFF57C00) else Color.LightGray,
+                    color = if (message.isMe) AppColors.Primary else AppColors.Border,
                     shape = RoundedCornerShape(16.dp)
                 )
                 .padding(12.dp)
         ) {
             Text(
                 text = message.text,
-                color = Color.Black,
+                color = AppColors.TextPrimary,
                 fontSize = 14.sp
             )
         }

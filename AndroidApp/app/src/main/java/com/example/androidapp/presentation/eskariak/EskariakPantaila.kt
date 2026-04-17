@@ -22,6 +22,7 @@ import androidx.navigation.NavController
 import com.example.androidapp.data.dto.EskariaDto
 import com.example.androidapp.data.dto.EskariaProduktuaDto
 import com.example.androidapp.presentation.components.AppTopBar
+import com.example.androidapp.ui.theme.AppColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -47,12 +48,12 @@ fun EskariakPantaila(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .background(Color(0xFFFFF3E0)) // Light Orange/Beige background
+                .background(AppColors.Background)
         ) {
             if (state.isLoading) {
                 CircularProgressIndicator(
                     modifier = Modifier.align(Alignment.Center),
-                    color = Color(0xFFF57C00)
+                    color = AppColors.Primary
                 )
             } else if (state.error != null) {
                 Column(
@@ -76,7 +77,7 @@ fun EskariakPantaila(
                     Spacer(modifier = Modifier.height(16.dp))
                     Button(
                         onClick = { viewModel.fetchOrders() },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF57C00))
+                        colors = ButtonDefaults.buttonColors(containerColor = AppColors.Primary)
                     ) {
                         Text("Saiatu berriro")
                     }
@@ -110,7 +111,7 @@ fun OrderCard(eskaria: EskariaDto) {
 
     Card(
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = AppColors.Surface),
         shape = RoundedCornerShape(16.dp),
         modifier = Modifier
             .fillMaxWidth()
@@ -131,14 +132,14 @@ fun OrderCard(eskaria: EskariaDto) {
                     text = idText,
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFFE65100)
+                    color = AppColors.TextStrong
                 )
                 StatusChip(statusText)
             }
             
             Divider(
                 modifier = Modifier.padding(vertical = 12.dp),
-                color = Color(0xFFFFE0B2)
+                color = AppColors.Border
             )
 
             // Info Grid
@@ -162,7 +163,7 @@ fun OrderCard(eskaria: EskariaDto) {
                          Icon(
                              imageVector = Icons.Default.Euro,
                              contentDescription = null,
-                             tint = Color(0xFFF57C00),
+                             tint = AppColors.Secondary,
                              modifier = Modifier.size(20.dp)
                          )
                          Spacer(modifier = Modifier.width(4.dp))
@@ -170,7 +171,7 @@ fun OrderCard(eskaria: EskariaDto) {
                              text = priceText,
                              style = MaterialTheme.typography.titleMedium,
                              fontWeight = FontWeight.Bold,
-                             color = Color.Black
+                             color = AppColors.TextStrong
                          )
                      }
                 }
@@ -183,13 +184,13 @@ fun OrderCard(eskaria: EskariaDto) {
                         text = "Produktuak",
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFFE65100),
+                        color = AppColors.TextStrong,
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
                     Surface(
-                        color = Color(0xFFFAFAFA),
+                        color = AppColors.Background,
                         shape = RoundedCornerShape(8.dp),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFEEEEEE))
+                        border = androidx.compose.foundation.BorderStroke(1.dp, AppColors.Border)
                     ) {
                         Column(modifier = Modifier.padding(8.dp)) {
                             OrderProductsList(eskaria.produktuak ?: emptyList())
@@ -208,7 +209,7 @@ fun OrderCard(eskaria: EskariaDto) {
                 Icon(
                     imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
                     contentDescription = "Expand",
-                    tint = Color.Gray
+                    tint = AppColors.TextSecondary
                 )
             }
         }
@@ -224,13 +225,13 @@ fun OrderDetailItem(icon: ImageVector, text: String) {
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = Color(0xFFF57C00),
+            tint = AppColors.Secondary,
             modifier = Modifier.size(20.dp)
         )
         Text(
             text = text,
             style = MaterialTheme.typography.bodyMedium,
-            color = Color.Black.copy(alpha = 0.8f)
+            color = AppColors.TextPrimary
         )
     }
 }
@@ -238,9 +239,9 @@ fun OrderDetailItem(icon: ImageVector, text: String) {
 @Composable
 fun StatusChip(status: String) {
     val (color, bgColor, icon) = when (status.lowercase()) {
-        "amaituta" -> Triple(Color(0xFF2E7D32), Color(0xFFE8F5E9), Icons.Default.CheckCircle)
-        "bertan behera" -> Triple(Color(0xFFC62828), Color(0xFFFFEBEE), Icons.Default.Cancel)
-        else -> Triple(Color(0xFF1565C0), Color(0xFFE3F2FD), Icons.Default.Info)
+        "amaituta" -> Triple(AppColors.Success, AppColors.SuccessSoft, Icons.Default.CheckCircle)
+        "bertan behera" -> Triple(AppColors.DangerHover, AppColors.Danger.copy(alpha = 0.10f), Icons.Default.Cancel)
+        else -> Triple(AppColors.Secondary, AppColors.Secondary.copy(alpha = 0.12f), Icons.Default.Info)
     }
     
     Surface(
@@ -275,7 +276,7 @@ fun OrderProductsList(products: List<EskariaProduktuaDto>) {
         Text(
             "Ez dago produkturik",
             style = MaterialTheme.typography.bodySmall,
-            color = Color.Gray,
+            color = AppColors.TextSecondary,
             modifier = Modifier.padding(8.dp)
         )
     } else {
@@ -302,19 +303,19 @@ fun OrderProductsList(products: List<EskariaProduktuaDto>) {
                         Text(
                             text = "${quantity} x ${String.format("%.2f", price)} €",
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color.Gray
+                            color = AppColors.TextSecondary
                         )
                     }
                     Text(
                         text = "${String.format("%.2f", total)} €",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFFE65100)
+                        color = AppColors.Primary
                     )
                 }
                 
                 if (index < products.lastIndex) {
-                    Divider(color = Color.LightGray.copy(alpha = 0.3f))
+                    Divider(color = AppColors.Border)
                 }
             }
         }

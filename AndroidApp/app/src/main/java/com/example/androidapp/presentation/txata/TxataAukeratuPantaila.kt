@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.androidapp.presentation.components.AppTopBar
+import com.example.androidapp.ui.theme.AppColors
 
 data class ChatOption(
     val id: Int,
@@ -61,7 +62,7 @@ fun TxataAukeratuPantaila(navController: NavController) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .background(Color(0xFFFFF3E0)) // Light beige background
+                .background(AppColors.Background)
         ) {
             LazyColumn(
                 contentPadding = PaddingValues(16.dp),
@@ -84,7 +85,7 @@ fun ChatOptionItem(chat: ChatOption, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .height(80.dp)
-            .background(Color(0xFFBCAAA4), RoundedCornerShape(40.dp)) // Brownish background
+            .background(AppColors.Surface, RoundedCornerShape(40.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -95,7 +96,7 @@ fun ChatOptionItem(chat: ChatOption, onClick: () -> Unit) {
             imageVector = chat.icon,
             contentDescription = null,
             modifier = Modifier.size(40.dp),
-            tint = Color.Black
+            tint = AppColors.TextPrimary
         )
 
         // Center Name Button style
@@ -104,12 +105,12 @@ fun ChatOptionItem(chat: ChatOption, onClick: () -> Unit) {
                 .weight(1f)
                 .padding(horizontal = 16.dp)
                 .height(48.dp)
-                .background(Color(0xFFE65100), RoundedCornerShape(8.dp)), // Orange/Brown inner box
+                .background(AppColors.Primary, RoundedCornerShape(8.dp)),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = chat.name,
-                color = Color.Black,
+                color = AppColors.Surface,
                 fontWeight = FontWeight.Bold,
                 fontSize = 18.sp
             )
@@ -121,7 +122,7 @@ fun ChatOptionItem(chat: ChatOption, onClick: () -> Unit) {
                 imageVector = Icons.Default.PushPin,
                 contentDescription = "Pinned",
                 modifier = Modifier.size(32.dp),
-                tint = Color.Black
+                tint = AppColors.Secondary
             )
         } else {
             Spacer(modifier = Modifier.size(32.dp))

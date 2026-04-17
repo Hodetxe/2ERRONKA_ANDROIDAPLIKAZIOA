@@ -2,23 +2,27 @@ package com.example.androidapp.presentation.login
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.RestaurantMenu
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.example.androidapp.R
 import com.example.androidapp.core.SessionManager
 import com.example.androidapp.data.model.LoginField
+import com.example.androidapp.ui.theme.AppColors
 
 @Composable
 fun LoginPantaila(
@@ -28,10 +32,21 @@ fun LoginPantaila(
     val state = viewModel.state
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = Color(0xFFFFF3E0)
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(AppColors.LoginGradientStart, AppColors.BrandDark)
+                )
+            )
     ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            color = Color.Transparent
+        ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -42,14 +57,16 @@ fun LoginPantaila(
             Box(
                 modifier = Modifier
                     .size(100.dp)
-                    .background(Color(0xFFF57C00), CircleShape),
+                    .background(AppColors.Surface.copy(alpha = 0.16f), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = Icons.Default.RestaurantMenu,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(60.dp)
+                Image(
+                    painter = painterResource(id = R.drawable.nanobites_icono),
+                    contentDescription = "Nanobites logo",
+                    modifier = Modifier
+                        .size(84.dp)
+                        .background(Color.Transparent, CircleShape),
+                    contentScale = ContentScale.Fit
                 )
             }
             
@@ -60,7 +77,7 @@ fun LoginPantaila(
                 style = MaterialTheme.typography.headlineLarge.copy(
                     fontSize = 32.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFFE65100)
+                    color = AppColors.Surface
                 )
             )
             
@@ -76,11 +93,11 @@ fun LoginPantaila(
                     .clickable { viewModel.onFieldSelected(LoginField.Code) },
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    disabledTextColor = Color.Black,
-                    disabledBorderColor = if (state.focusedField == LoginField.Code) Color(0xFFE65100) else Color(0xFFFFCCBC),
-                    disabledLabelColor = Color(0xFFE65100),
-                    disabledContainerColor = Color.White,
-                    disabledPlaceholderColor = Color.Gray
+                    disabledTextColor = AppColors.TextStrong,
+                    disabledBorderColor = if (state.focusedField == LoginField.Code) AppColors.Primary else AppColors.Border,
+                    disabledLabelColor = AppColors.Primary,
+                    disabledContainerColor = AppColors.Surface,
+                    disabledPlaceholderColor = AppColors.TextSecondary
                 ),
                 textStyle = MaterialTheme.typography.titleMedium
             )
@@ -97,10 +114,10 @@ fun LoginPantaila(
                     .clickable { viewModel.onFieldSelected(LoginField.Password) },
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    disabledTextColor = Color.Black,
-                    disabledBorderColor = if (state.focusedField == LoginField.Password) Color(0xFFE65100) else Color(0xFFFFCCBC),
-                    disabledLabelColor = Color(0xFFE65100),
-                    disabledContainerColor = Color.White
+                    disabledTextColor = AppColors.TextStrong,
+                    disabledBorderColor = if (state.focusedField == LoginField.Password) AppColors.Primary else AppColors.Border,
+                    disabledLabelColor = AppColors.Primary,
+                    disabledContainerColor = AppColors.Surface
                 ),
                 textStyle = MaterialTheme.typography.titleMedium
             )
@@ -126,14 +143,14 @@ fun LoginPantaila(
                     .height(56.dp),
                 shape = RoundedCornerShape(28.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFF57C00),
-                    contentColor = Color.White
+                    containerColor = AppColors.Primary,
+                    contentColor = AppColors.Surface
                 ),
                 elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
             ) {
                 if (state.isLoading) {
                     CircularProgressIndicator(
-                        color = Color.White,
+                        color = AppColors.Surface,
                         strokeWidth = 2.dp,
                         modifier = Modifier.size(24.dp)
                     )
@@ -154,15 +171,16 @@ fun LoginPantaila(
             ) {
                 Snackbar(
                     modifier = Modifier.padding(16.dp),
-                    containerColor = Color(0xFFD32F2F),
-                    contentColor = Color.White,
+                    containerColor = AppColors.Danger,
+                    contentColor = AppColors.Surface,
                     action = {
                         TextButton(onClick = { errorMessage = null }) {
-                            Text("ITXI", color = Color.White)
+                            Text("ITXI", color = AppColors.Surface)
                         }
                     }
                 ) { Text(msg) }
             }
+        }
         }
     }
 }

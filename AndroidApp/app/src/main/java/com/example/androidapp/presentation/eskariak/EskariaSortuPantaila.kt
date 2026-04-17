@@ -29,6 +29,7 @@ import androidx.compose.ui.platform.LocalContext
 import coil.compose.AsyncImage
 import com.example.androidapp.core.network.ApiClient
 import com.example.androidapp.core.SessionManager
+import com.example.androidapp.ui.theme.AppColors
 import kotlinx.coroutines.delay
 
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -43,9 +44,9 @@ fun EskariaSortuPantaila(
     val currentUser = SessionManager.currentUser
 
     // Colors
-    val OrangeColor = Color(0xFFF57C00)
-    val DarkBlueColor = Color(0xFF1A1F2C)
-    val LightBeigeColor = Color(0xFFFFF3E0)
+    val primaryColor = AppColors.Primary
+    val darkBrandColor = AppColors.BrandDark
+    val panelColor = AppColors.Background
 
     // Time
     var currentTime by remember { mutableStateOf("") }
@@ -72,7 +73,7 @@ fun EskariaSortuPantaila(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(OrangeColor)
+                .background(primaryColor)
                 .padding(16.dp)
         ) {
             // Back Button
@@ -98,7 +99,7 @@ fun EskariaSortuPantaila(
                              verticalAlignment = Alignment.CenterVertically,
                              modifier = Modifier
                                  .clickable { expanded = true }
-                                 .background(Color.White.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+                                 .background(AppColors.Surface.copy(alpha = 0.18f), RoundedCornerShape(8.dp))
                                  .padding(horizontal = 12.dp, vertical = 4.dp)
                          ) {
                              Text(
@@ -248,7 +249,7 @@ fun EskariaSortuPantaila(
                 modifier = Modifier
                     .weight(0.3f)
                     .fillMaxHeight()
-                    .background(DarkBlueColor)
+                        .background(darkBrandColor)
                     .padding(16.dp)
             ) {
                 Text(
@@ -286,7 +287,7 @@ fun EskariaSortuPantaila(
                             navController.popBackStack()
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = OrangeColor),
+                    colors = ButtonDefaults.buttonColors(containerColor = primaryColor),
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp),
@@ -310,7 +311,7 @@ fun EskariaSortuPantaila(
 @Composable
 fun CategoryTab(text: String, isSelected: Boolean, onClick: () -> Unit) {
     Surface(
-        color = if (isSelected) Color(0xFFFFF3E0) else Color.Transparent,
+        color = if (isSelected) AppColors.Secondary.copy(alpha = 0.14f) else Color.Transparent,
         shape = RoundedCornerShape(8.dp),
         modifier = Modifier
             .clickable(onClick = onClick)
@@ -320,7 +321,7 @@ fun CategoryTab(text: String, isSelected: Boolean, onClick: () -> Unit) {
             text = text,
             fontSize = 18.sp,
             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-            color = Color.Black,
+            color = if (isSelected) AppColors.Primary else AppColors.TextPrimary,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
         )
     }
@@ -345,7 +346,7 @@ fun ProductItem(
         Surface(
             modifier = Modifier.size(80.dp),
             shape = RoundedCornerShape(12.dp),
-            color = Color.LightGray
+            color = AppColors.Border.copy(alpha = 0.5f)
         ) {
             val context = LocalContext.current
             val model = remember(product.izena) {
@@ -415,7 +416,7 @@ fun ProductItem(
                 isAddEnabled = isAddEnabled,
                 onAdd = onAdd,
                 onRemove = onRemove,
-                backgroundColor = Color(0xFFFFF3E0)
+                backgroundColor = AppColors.Background
             )
         }
     }
@@ -435,7 +436,7 @@ fun CartItem(
     ) {
         Text(
             text = product.izena,
-            color = Color.White,
+            color = AppColors.Surface,
             fontWeight = FontWeight.Bold,
             fontSize = 16.sp,
             modifier = Modifier.padding(bottom = 8.dp)
@@ -446,8 +447,8 @@ fun CartItem(
             isAddEnabled = isAddEnabled,
             onAdd = onAdd,
             onRemove = onRemove,
-            backgroundColor = Color.Transparent, // Transparent to blend with dark bg, but maybe needs a lighter container
-            contentColor = Color.White
+            backgroundColor = AppColors.Surface.copy(alpha = 0.08f),
+            contentColor = AppColors.Surface
         )
     }
 }

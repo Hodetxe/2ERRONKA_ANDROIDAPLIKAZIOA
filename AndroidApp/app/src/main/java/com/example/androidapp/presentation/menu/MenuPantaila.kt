@@ -23,24 +23,25 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.androidapp.core.SessionManager
 import com.example.androidapp.presentation.components.AppTopBar
+import com.example.androidapp.ui.theme.AppColors
 
 data class MenuItem(
     val title: String,
     val icon: ImageVector,
     val route: String,
-    val color: Color = Color(0xFFF57C00) // Default Orange
+    val color: Color = AppColors.Primary
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MenuPantaila(navController: NavController) {
     val menuItems = listOf(
-        MenuItem("Erreserbak ikusi", Icons.Default.DateRange, "erreserbak", Color(0xFFEF6C00)),
-        MenuItem("Erreserba sortu", Icons.Default.EditCalendar, "erreserba_sortu", Color(0xFFF57C00)),
-        MenuItem("Eskariak ikusi", Icons.Default.ReceiptLong, "eskariak", Color(0xFFFB8C00)),
-        MenuItem("Eskariak sortu", Icons.Default.ShoppingCart, "eskaria_sortu/1", Color(0xFFFF9800)),
-        MenuItem("Mahaiak", Icons.Default.TableRestaurant, "mahaiak", Color(0xFFFFA726)),
-        MenuItem("Txata", Icons.Default.Chat, "txata_aukeratu", Color(0xFFFFB74D))
+        MenuItem("Erreserbak ikusi", Icons.Default.DateRange, "erreserbak", AppColors.Secondary),
+        MenuItem("Erreserba sortu", Icons.Default.EditCalendar, "erreserba_sortu", AppColors.Primary),
+        MenuItem("Eskariak ikusi", Icons.Default.ReceiptLong, "eskariak", AppColors.BrandDark),
+        MenuItem("Eskariak sortu", Icons.Default.ShoppingCart, "eskaria_sortu/1", AppColors.PrimaryHover),
+        MenuItem("Mahaiak", Icons.Default.TableRestaurant, "mahaiak", AppColors.Secondary.copy(alpha = 0.85f)),
+        MenuItem("Txata", Icons.Default.Chat, "txata_aukeratu", AppColors.Primary.copy(alpha = 0.85f))
     )
 
     Scaffold(
@@ -62,7 +63,7 @@ fun MenuPantaila(navController: NavController) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues),
-            color = Color(0xFFFFF3E0) // Light Beige Background
+            color = AppColors.Background
         ) {
             Column(
                 modifier = Modifier
@@ -73,13 +74,13 @@ fun MenuPantaila(navController: NavController) {
                     text = "Ongi etorri!",
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFFE65100),
+                    color = AppColors.TextStrong,
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
                 Text(
                     text = "Aukeratu aukera bat hasteko:",
                     style = MaterialTheme.typography.bodyLarge,
-                    color = Color.Gray,
+                    color = AppColors.TextSecondary,
                     modifier = Modifier.padding(bottom = 24.dp)
                 )
 
@@ -109,7 +110,7 @@ fun MenuButton(item: MenuItem, onClick: () -> Unit) {
             .height(160.dp),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Color.White
+            containerColor = AppColors.Surface
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
     ) {
@@ -152,7 +153,7 @@ fun MenuButton(item: MenuItem, onClick: () -> Unit) {
                     text = item.title,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF3E2723),
+                    color = AppColors.TextPrimary,
                     textAlign = TextAlign.Center
                 )
             }
