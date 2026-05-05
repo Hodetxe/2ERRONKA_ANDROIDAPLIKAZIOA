@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import com.example.androidapp.core.network.ApiClient
 import com.example.androidapp.data.dto.ProduktuaDto
 import com.example.androidapp.data.dto.ErreserbaDto
+import com.example.androidapp.data.dto.EskariaDto
 import com.example.androidapp.data.dto.EskariaSortuDto
 import com.example.androidapp.data.dto.EskariaProduktuaSortuDto
 import com.example.androidapp.data.remote.ProduktuakApi
@@ -136,6 +137,58 @@ class EskariaSortuViewModel : ViewModel() {
             }
         })
     }
+
+    fun kargatuEskaria(eskariaId: Int) {
+        egoera = egoera.copy(isLoading = true, error = null, eskariaId = eskariaId)
+
+        eskariakApi.getEskaria(eskariaId).enqueue(object : Callback<EskariaDto> {
+            override fun onResponse(call: Call<EskariaDto>, response: Response<EskariaDto>) {
+                if (!response.isSuccessful) {
+                    egoera = egoera.copy(isLoading = false, error = "Errorea eskaria kargatzean: ${response.code()}")
+                    return
+                }
+
+                val eskaria = response.body()
+                if (eskaria == null) {
+                    egoera = egoera.copy(isLoading = false, error = "Eskaria hutsik etorri da")
+                    return
+                }
+
+                val saskiBerria = eskaria.produktuak
+                    ?.groupBy { it.produktuaId }
+                    ?.mapValues { (_, lines) -> lines.sumOf { it.kantitatea } }
+                    ?: emptyMap()
+
+                egoera = egoera.copy(
+                    eskariaId = eskaria.id,
+                    erreserbaId = eskaria.erreserbaId,
+                    saskia = saskiBerria
+                )
+
+                erreserbakApi.getErreserbak().enqueue(object : Callback<List<ErreserbaDto>> {
+                    override fun onResponse(call: Call<List<ErreserbaDto>>, response: Response<List<ErreserbaDto>>) {
+                        if (response.isSuccessful) {
+                            val all = response.body() ?: emptyList()
+                            val active = all.filter { it.ordainduta == 0 }
+                            val selected = all.find { it.id == eskaria.erreserbaId }
+                            val merged = (active + listOfNotNull(selected)).distinctBy { it.id }
+                            egoera = egoera.copy(erreserbak = merged, isLoading = false)
+                        } else {
+                            egoera = egoera.copy(isLoading = false, error = "Errorea erreserbak kargatzean")
+                        }
+                    }
+
+                    override fun onFailure(call: Call<List<ErreserbaDto>>, t: Throwable) {
+                        egoera = egoera.copy(isLoading = false, error = "Konexio errorea: ${t.message}")
+                    }
+                })
+            }
+
+            override fun onFailure(call: Call<EskariaDto>, t: Throwable) {
+                egoera = egoera.copy(isLoading = false, error = "Konexio errorea: ${t.message}")
+            }
+        })
+    }
     
     fun aukeratuErreserba(erreserbaId: Int) {
         egoera = egoera.copy(erreserbaId = erreserbaId)
@@ -172,16 +225,24 @@ class EskariaSortuViewModel : ViewModel() {
             egoera = "Prestatzen", 
             produktuak = produktuakSortu
         )
-        
-        eskariakApi.createEskaria(eskariaDto).enqueue(object : Callback<Any> {
+
+        val call = if (egoera.eskariaId != null) {
+            eskariakApi.updateEskaria(egoera.eskariaId!!, eskariaDto)
+        } else {
+            eskariakApi.createEskaria(eskariaDto)
+        }
+
+        call.enqueue(object : Callback<Any> {
             override fun onResponse(call: Call<Any>, response: Response<Any>) {
                 if (response.isSuccessful) {
-                    android.util.Log.d("EskariaSortuViewModel", "Eskaria ondo sortu da")
-                    egoera = egoera.copy(saskia = emptyMap(), isLoading = false)
+                    val mezua = if (egoera.eskariaId != null) "Eskaria ondo eguneratu da" else "Eskaria ondo sortu da"
+                    android.util.Log.d("EskariaSortuViewModel", mezua)
+                    egoera = egoera.copy(saskia = emptyMap(), isLoading = false, eskariaId = null)
                     onSuccess()
                 } else {
-                     android.util.Log.e("EskariaSortuViewModel", "Errorea eskaria sortzean: ${response.code()}")
-                    egoera = egoera.copy(isLoading = false, error = "Errorea eskaria sortzean: ${response.code()}")
+                    val mezua = if (egoera.eskariaId != null) "Errorea eskaria eguneratzean" else "Errorea eskaria sortzean"
+                    android.util.Log.e("EskariaSortuViewModel", "$mezua: ${response.code()}")
+                    egoera = egoera.copy(isLoading = false, error = "$mezua: ${response.code()}")
                 }
             }
             override fun onFailure(call: Call<Any>, t: Throwable) {

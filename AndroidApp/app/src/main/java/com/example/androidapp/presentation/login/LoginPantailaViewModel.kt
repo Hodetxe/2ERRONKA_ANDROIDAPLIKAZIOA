@@ -98,7 +98,7 @@ class LoginPantailaViewModel : ViewModel() {
 
             override fun onFailure(call: Call<LoginErantzuna>, t: Throwable) {
                 state = state.copy(isLoading = false)
-                onError("Sare errorea: ${t.message ?: "Ezezaguna"}")
+                onError("Sare errorea (${t.javaClass.simpleName}) [${ApiClient.BASE_URL}]: ${t.message ?: "Ezezaguna"}")
             }
         })
     }

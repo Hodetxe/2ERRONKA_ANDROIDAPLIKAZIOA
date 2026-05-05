@@ -4,6 +4,7 @@ import com.example.androidapp.data.dto.ErreserbaDto
 import com.example.androidapp.data.dto.ProduktuaDto
 
 data class EskariaSortuEgoera(
+    val eskariaId: Int? = null,
     val produktuak: List<ProduktuaDto> = emptyList(),
     val kategoriak: List<String> = emptyList(),
     val kategoriaAukeratua: String = "",

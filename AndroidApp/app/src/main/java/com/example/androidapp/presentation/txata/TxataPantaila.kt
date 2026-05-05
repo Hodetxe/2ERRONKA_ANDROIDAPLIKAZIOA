@@ -1,15 +1,20 @@
 package com.example.androidapp.presentation.txata
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.RoomService
 import androidx.compose.material3.*
@@ -30,11 +35,19 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import com.example.androidapp.ui.theme.AppColors
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+
 data class Message(
     val id: Int,
     val text: String,
     val isMe: Boolean,
-    val senderIcon: ImageVector
+    val senderIcon: ImageVector,
+    val isFile: Boolean = false,
+    val fileName: String? = null,
+    val fileUri: Uri? = null,
+    val mimeType: String? = null
 )
 
 @Composable
@@ -56,6 +69,23 @@ fun TxataPantaila(
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val emojis = remember { listOf("😀", "😂", "😍", "👍", "🙏", "☕", "🍔", "✅", "❗") }
+    val context = LocalContext.current
+
+    val filePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+        onResult = { uri ->
+            if (uri != null) {
+                runCatching {
+                    context.contentResolver.takePersistableUriPermission(
+                        uri,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    )
+                }
+                viewModel.sendFile(uri)
+            }
+        }
+    )
 
     // Auto-scroll to bottom when new messages arrive
     LaunchedEffect(messages.size) {
@@ -118,7 +148,18 @@ fun TxataPantaila(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 items(messages) { message ->
-                    MessageItem(message)
+                    MessageItem(
+                        message = message,
+                        onOpenFile = { fileUri, mimeType ->
+                            runCatching {
+                                val intent = Intent(Intent.ACTION_VIEW).apply {
+                                    setDataAndType(fileUri, mimeType)
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                                context.startActivity(intent)
+                            }
+                        }
+                    )
                 }
             }
 
@@ -128,6 +169,30 @@ fun TxataPantaila(
                     .fillMaxWidth()
                     .padding(bottom = 0.dp)
             ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    emojis.forEach { emoji ->
+                        Surface(
+                            color = AppColors.Surface,
+                            shape = RoundedCornerShape(12.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, AppColors.Border),
+                            modifier = Modifier
+                                .clickable { messageText += emoji }
+                        ) {
+                            Text(
+                                text = emoji,
+                                fontSize = 18.sp,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                            )
+                        }
+                    }
+                }
+
                 // Text Input Row
                 Row(
                     modifier = Modifier
@@ -135,6 +200,19 @@ fun TxataPantaila(
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    IconButton(
+                        onClick = {
+                            keyboardController?.hide()
+                            filePickerLauncher.launch(arrayOf("*/*"))
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AttachFile,
+                            contentDescription = "Fitxategia",
+                            tint = AppColors.TextPrimary
+                        )
+                    }
+
                     // Input Box
                     OutlinedTextField(
                         value = messageText,
@@ -187,7 +265,10 @@ fun TxataPantaila(
 }
 
 @Composable
-fun MessageItem(message: Message) {
+fun MessageItem(
+    message: Message,
+    onOpenFile: (Uri, String?) -> Unit
+) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = if (message.isMe) Arrangement.End else Arrangement.Start,
@@ -217,11 +298,36 @@ fun MessageItem(message: Message) {
                 )
                 .padding(12.dp)
         ) {
-            Text(
-                text = message.text,
-                color = AppColors.TextPrimary,
-                fontSize = 14.sp
-            )
+            if (message.isFile && message.fileUri != null) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = message.text,
+                        color = AppColors.TextPrimary,
+                        fontSize = 14.sp
+                    )
+                    Button(
+                        onClick = { onOpenFile(message.fileUri, message.mimeType) },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = AppColors.Primary,
+                            contentColor = AppColors.Surface
+                        )
+                    ) {
+                        Text(
+                            text = "Ireki",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            } else {
+                Text(
+                    text = message.text,
+                    color = AppColors.TextPrimary,
+                    fontSize = 14.sp
+                )
+            }
         }
 
         if (message.isMe) {

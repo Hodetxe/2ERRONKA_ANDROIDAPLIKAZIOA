@@ -37,7 +37,8 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 @Composable
 fun EskariaSortuPantaila(
     navController: NavController,
-    mahaiaId: Int,
+    mahaiaId: Int? = null,
+    eskariaId: Int? = null,
     viewModel: EskariaSortuViewModel = viewModel()
 ) {
     val egoera = viewModel.egoera
@@ -64,8 +65,12 @@ fun EskariaSortuPantaila(
     // Dropdown state
     var expanded by remember { mutableStateOf(false) }
 
-    LaunchedEffect(mahaiaId) {
-        viewModel.kargatuErreserbaAktiboa(mahaiaId)
+    LaunchedEffect(eskariaId, mahaiaId) {
+        if (eskariaId != null) {
+            viewModel.kargatuEskaria(eskariaId)
+        } else if (mahaiaId != null) {
+            viewModel.kargatuErreserbaAktiboa(mahaiaId)
+        }
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -152,10 +157,10 @@ fun EskariaSortuPantaila(
             ) {
                 // Table Number
                 val selectedErreserba = egoera.erreserbak.find { it.id == egoera.erreserbaId }
-                val displayMahaiaId = selectedErreserba?.mahaiakId ?: mahaiaId
+                val displayMahaiaId = selectedErreserba?.mahaiakId ?: mahaiaId ?: 0
                 
                 Text(
-                    text = String.format("%02d Mahaia", displayMahaiaId),
+                    text = if (displayMahaiaId > 0) String.format("%02d Mahaia", displayMahaiaId) else "Mahaia ?",
                     color = Color.White,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
@@ -253,7 +258,7 @@ fun EskariaSortuPantaila(
                     .padding(16.dp)
             ) {
                 Text(
-                    text = "Eskaria",
+                    text = if (egoera.eskariaId != null) "Eskaria (Editatu)" else "Eskaria",
                     color = Color.White,
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
@@ -297,7 +302,7 @@ fun EskariaSortuPantaila(
                         CircularProgressIndicator(color = Color.White)
                     } else {
                         Text(
-                            text = "Bidali",
+                            text = if (egoera.eskariaId != null) "Eguneratu" else "Bidali",
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Bold
                         )

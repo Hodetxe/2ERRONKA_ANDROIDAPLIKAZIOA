@@ -88,7 +88,12 @@ fun EskariakPantaila(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     items(state.orders) { order ->
-                        OrderCard(order)
+                        OrderCard(
+                            eskaria = order,
+                            onEdit = { eskariaId ->
+                                navController.navigate("eskaria_editatu/$eskariaId")
+                            }
+                        )
                     }
                 }
             }
@@ -97,13 +102,17 @@ fun EskariakPantaila(
 }
 
 @Composable
-fun OrderCard(eskaria: EskariaDto) {
+fun OrderCard(
+    eskaria: EskariaDto,
+    onEdit: (Int) -> Unit
+) {
     var expanded by remember { mutableStateOf(false) }
     
     val statusText = eskaria.egoera ?: "Ezezaguna"
     val tableText = if (eskaria.mahaiaZenbakia != null) "Mahaia ${eskaria.mahaiaZenbakia}" else "Mahaia ?"
     val customerName = eskaria.bezeroIzena ?: "Bezero ezezaguna"
     val idText = "Eskaria #${eskaria.id}"
+    val canEdit = statusText.lowercase() != "amaituta" && statusText.lowercase() != "bertan behera"
     
     // Calculate total price locally from products to ensure accuracy
     val calculatedTotal = eskaria.produktuak?.sumOf { it.kantitatea * it.prezioa } ?: 0.0
@@ -134,7 +143,19 @@ fun OrderCard(eskaria: EskariaDto) {
                     fontWeight = FontWeight.Bold,
                     color = AppColors.TextStrong
                 )
-                StatusChip(statusText)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    StatusChip(statusText)
+                    IconButton(
+                        onClick = { onEdit(eskaria.id) },
+                        enabled = canEdit
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Editatu",
+                            tint = if (canEdit) AppColors.Primary else AppColors.TextSecondary
+                        )
+                    }
+                }
             }
             
             Divider(

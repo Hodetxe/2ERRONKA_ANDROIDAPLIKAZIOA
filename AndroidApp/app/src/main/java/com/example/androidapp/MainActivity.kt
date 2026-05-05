@@ -9,6 +9,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
+import com.example.androidapp.core.network.ApiClient
 import com.example.androidapp.presentation.erreserbak.ErreserbaSortuPantaila
 import com.example.androidapp.presentation.erreserbak.ErreserbakPantaila
 import com.example.androidapp.presentation.eskariak.EskariaSortuPantaila
@@ -23,6 +24,7 @@ import com.example.androidapp.ui.theme.AppTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        ApiClient.init(applicationContext)
         setContent {
             AppTheme {
                 val navController = rememberNavController()
@@ -38,7 +40,14 @@ class MainActivity : ComponentActivity() {
                         arguments = listOf(navArgument("mahaiaId") { type = NavType.IntType })
                     ) { backStackEntry ->
                         val mahaiaId = backStackEntry.arguments?.getInt("mahaiaId") ?: 0
-                        EskariaSortuPantaila(navController, mahaiaId)
+                        EskariaSortuPantaila(navController, mahaiaId = mahaiaId)
+                    }
+                    composable(
+                        route = "eskaria_editatu/{eskariaId}",
+                        arguments = listOf(navArgument("eskariaId") { type = NavType.IntType })
+                    ) { backStackEntry ->
+                        val eskariaId = backStackEntry.arguments?.getInt("eskariaId") ?: 0
+                        EskariaSortuPantaila(navController, eskariaId = eskariaId)
                     }
                     composable("txata_aukeratu") { TxataAukeratuPantaila(navController) }
                     composable(

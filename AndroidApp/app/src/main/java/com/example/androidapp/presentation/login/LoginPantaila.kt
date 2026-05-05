@@ -13,6 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -21,6 +22,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.androidapp.R
 import com.example.androidapp.core.SessionManager
+import com.example.androidapp.core.network.ApiClient
 import com.example.androidapp.data.model.LoginField
 import com.example.androidapp.ui.theme.AppColors
 
@@ -31,6 +33,12 @@ fun LoginPantaila(
 ) {
     val state = viewModel.state
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
+
+    var settingsOpen by remember { mutableStateOf(false) }
+    var apiBaseUrl by remember { mutableStateOf(ApiClient.BASE_URL) }
+    var chatHost by remember { mutableStateOf(ApiClient.CHAT_HOST) }
+    var chatPortText by remember { mutableStateOf(ApiClient.CHAT_PORT.toString()) }
 
     Box(
         modifier = Modifier
@@ -54,6 +62,15 @@ fun LoginPantaila(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                TextButton(onClick = { settingsOpen = true }) {
+                    Text(text = "ZERBITZARIA", color = AppColors.Surface)
+                }
+            }
+
             Box(
                 modifier = Modifier
                     .size(100.dp)
@@ -162,6 +179,52 @@ fun LoginPantaila(
                     )
                 }
             }
+        }
+
+        if (settingsOpen) {
+            AlertDialog(
+                onDismissRequest = { settingsOpen = false },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            val port = chatPortText.trim().toIntOrNull() ?: ApiClient.CHAT_PORT
+                            ApiClient.updateSettings(
+                                context = context,
+                                apiBaseUrl = apiBaseUrl,
+                                chatHost = chatHost,
+                                chatPort = port
+                            )
+                            settingsOpen = false
+                        }
+                    ) { Text("GORDE") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { settingsOpen = false }) { Text("UTZI") }
+                },
+                title = { Text("Zerbitzari konfigurazioa") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        OutlinedTextField(
+                            value = apiBaseUrl,
+                            onValueChange = { apiBaseUrl = it },
+                            label = { Text("API Base URL") },
+                            singleLine = true
+                        )
+                        OutlinedTextField(
+                            value = chatHost,
+                            onValueChange = { chatHost = it },
+                            label = { Text("Txat host") },
+                            singleLine = true
+                        )
+                        OutlinedTextField(
+                            value = chatPortText,
+                            onValueChange = { chatPortText = it },
+                            label = { Text("Txat port") },
+                            singleLine = true
+                        )
+                    }
+                }
+            )
         }
 
         errorMessage?.let { msg ->
