@@ -43,6 +43,7 @@ fun EskariaSortuPantaila(
 ) {
     val egoera = viewModel.egoera
     val currentUser = SessionManager.currentUser
+    val snackbarHostState = remember { SnackbarHostState() }
 
     // Colors
     val primaryColor = AppColors.Primary
@@ -73,171 +74,228 @@ fun EskariaSortuPantaila(
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        // Top Bar
-        Box(
+    LaunchedEffect(egoera.error) {
+        val msg = egoera.error ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(message = msg, actionLabel = "ITXI", duration = SnackbarDuration.Short)
+        viewModel.clearError()
+    }
+
+    LaunchedEffect(egoera.isSuccess) {
+        if (!egoera.isSuccess) return@LaunchedEffect
+        val msg = egoera.successMessage ?: "Eskaria ondo egin da"
+        snackbarHostState.showSnackbar(message = msg, duration = SnackbarDuration.Short)
+        viewModel.clearSuccess()
+        navController.popBackStack()
+    }
+
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) }
+    ) { paddingValues ->
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .background(primaryColor)
-                .padding(16.dp)
+                .fillMaxSize()
+                .padding(paddingValues)
         ) {
-            // Back Button
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Atzera",
-                tint = Color.White,
+            // Top Bar
+            Box(
                 modifier = Modifier
-                    .align(Alignment.CenterStart)
-                    .size(32.dp)
-                    .clickable { navController.popBackStack() }
-            )
-
-            // Reservation Selector (Center)
-            Column(
-                modifier = Modifier.align(Alignment.Center),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .fillMaxWidth()
+                    .background(primaryColor)
+                    .padding(16.dp)
             ) {
-                if (egoera.erreserbak.isNotEmpty()) {
-                    Box {
-                         val selectedErreserba = egoera.erreserbak.find { it.id == egoera.erreserbaId }
-                         Row(
-                             verticalAlignment = Alignment.CenterVertically,
-                             modifier = Modifier
-                                 .clickable { expanded = true }
-                                 .background(AppColors.Surface.copy(alpha = 0.18f), RoundedCornerShape(8.dp))
-                                 .padding(horizontal = 12.dp, vertical = 4.dp)
-                         ) {
-                             Text(
-                                 text = selectedErreserba?.bezeroIzena ?: "Aukeratu Erreserba",
-                                 color = Color.White,
-                                 fontSize = 18.sp,
-                                 fontWeight = FontWeight.Bold
-                             )
-                             Icon(
-                                 imageVector = if (expanded) Icons.Filled.ArrowDropDown else Icons.Filled.ArrowDropDown, // Use same icon or rotate it, keeping simple for now
-                                 contentDescription = "Dropdown",
-                                 tint = Color.White,
-                                 modifier = Modifier.rotate(if (expanded) 180f else 0f)
-                             )
-                         }
-                         
-                         DropdownMenu(
-                             expanded = expanded,
-                             onDismissRequest = { expanded = false }
-                         ) {
-                             egoera.erreserbak.forEach { erreserba ->
-                                 DropdownMenuItem(
-                                    text = { 
-                                        Column {
-                                            Text("${erreserba.bezeroIzena}", fontWeight = FontWeight.Bold)
-                                            Text("${erreserba.mahaiakId}. Mahaia (${erreserba.egunaOrdua})", fontSize = 12.sp)
-                                        }
-                                    },
-                                    onClick = {
-                                        viewModel.aukeratuErreserba(erreserba.id)
-                                        expanded = false
-                                    }
-                                )
-                             }
-                         }
-                    }
-                } else {
-                    Text(
-                         text = "Ez dago erreserbarik",
-                         color = Color.White,
-                         fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-
-            // Right Side Content
-            Row(
-                modifier = Modifier.align(Alignment.CenterEnd),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Table Number
-                val selectedErreserba = egoera.erreserbak.find { it.id == egoera.erreserbaId }
-                val displayMahaiaId = selectedErreserba?.mahaiakId ?: mahaiaId ?: 0
-                
-                Text(
-                    text = if (displayMahaiaId > 0) String.format("%02d Mahaia", displayMahaiaId) else "Mahaia ?",
-                    color = Color.White,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(end = 16.dp)
+                // Back Button
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Atzera",
+                    tint = Color.White,
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .size(32.dp)
+                        .clickable { navController.popBackStack() }
                 )
 
-                // Worker and Time
+                // Reservation Selector (Center)
                 Column(
-                    horizontalAlignment = Alignment.End
+                    modifier = Modifier.align(Alignment.Center),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    if (egoera.erreserbak.isNotEmpty()) {
+                        Box {
+                            val selectedErreserba = egoera.erreserbak.find { it.id == egoera.erreserbaId }
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .clickable { expanded = true }
+                                    .background(AppColors.Surface.copy(alpha = 0.18f), RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 12.dp, vertical = 4.dp)
+                            ) {
+                                Text(
+                                    text = selectedErreserba?.bezeroIzena ?: "Aukeratu Erreserba",
+                                    color = Color.White,
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Icon(
+                                    imageVector = if (expanded) Icons.Filled.ArrowDropDown else Icons.Filled.ArrowDropDown,
+                                    contentDescription = "Dropdown",
+                                    tint = Color.White,
+                                    modifier = Modifier.rotate(if (expanded) 180f else 0f)
+                                )
+                            }
+
+                            DropdownMenu(
+                                expanded = expanded,
+                                onDismissRequest = { expanded = false }
+                            ) {
+                                egoera.erreserbak.forEach { erreserba ->
+                                    DropdownMenuItem(
+                                        text = {
+                                            Column {
+                                                Text("${erreserba.bezeroIzena}", fontWeight = FontWeight.Bold)
+                                                Text("${erreserba.mahaiakId}. Mahaia (${erreserba.egunaOrdua})", fontSize = 12.sp)
+                                            }
+                                        },
+                                        onClick = {
+                                            viewModel.aukeratuErreserba(erreserba.id)
+                                            expanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        Text(
+                            text = "Ez dago erreserbarik",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                // Right Side Content
+                Row(
+                    modifier = Modifier.align(Alignment.CenterEnd),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Table Number
+                    val selectedErreserba = egoera.erreserbak.find { it.id == egoera.erreserbaId }
+                    val displayMahaiaId = selectedErreserba?.mahaiakId ?: mahaiaId ?: 0
+
                     Text(
-                        text = currentUser?.izena ?: "Ezezaguna",
+                        text = if (displayMahaiaId > 0) String.format("%02d Mahaia", displayMahaiaId) else "Mahaia ?",
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp
+                        fontSize = 20.sp,
+                        modifier = Modifier.padding(end = 16.dp)
                     )
-                    Text(
-                        text = "$currentDate $currentTime",
-                        color = Color.White.copy(alpha = 0.8f),
-                        fontSize = 12.sp
-                    )
+
+                    // Worker and Time
+                    Column(
+                        horizontalAlignment = Alignment.End
+                    ) {
+                        Text(
+                            text = currentUser?.izena ?: "Ezezaguna",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
+                        )
+                        Text(
+                            text = "$currentDate $currentTime",
+                            color = Color.White.copy(alpha = 0.8f),
+                            fontSize = 12.sp
+                        )
+                    }
                 }
             }
-        }
 
-        // Main Content
-        Row(modifier = Modifier.fillMaxSize()) {
-            // Left Side: Categories and Products (70%)
-            Column(
-                modifier = Modifier
-                    .weight(0.7f)
-                    .fillMaxHeight()
-                    .padding(8.dp)
-            ) {
-                // Category Tabs
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
+            // Main Content
+            Row(modifier = Modifier.fillMaxSize()) {
+                // Left Side: Categories and Products (70%)
+                Column(
+                    modifier = Modifier
+                        .weight(0.7f)
+                        .fillMaxHeight()
+                        .padding(8.dp)
                 ) {
-                    val categories = egoera.kategoriak
-                    if (categories.isEmpty() && !egoera.isLoading) {
-                         Text("Ez da kategoriarik aurkitu")
+                    // Category Tabs
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        val categories = egoera.kategoriak
+                        if (categories.isEmpty() && !egoera.isLoading) {
+                            Text("Ez da kategoriarik aurkitu")
+                        } else {
+                            categories.forEach { category ->
+                                CategoryTab(
+                                    text = category,
+                                    isSelected = egoera.kategoriaAukeratua == category,
+                                    onClick = { viewModel.aldatuKategoria(category) }
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Category Title
+                    Text(
+                        text = egoera.kategoriaAukeratua,
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+
+                    // Product List
+                    if (egoera.isLoading) {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator()
+                        }
                     } else {
-                        categories.forEach { category ->
-                            CategoryTab(
-                                text = category,
-                                isSelected = egoera.kategoriaAukeratua == category,
-                                onClick = { viewModel.aldatuKategoria(category) }
-                            )
+                        LazyColumn(
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            val filteredProducts = egoera.produktuak.filter { it.mota == egoera.kategoriaAukeratua }
+                            items(filteredProducts) { product ->
+                                val quantity = egoera.saskia[product.id] ?: 0
+                                ProductItem(
+                                    product = product,
+                                    quantity = quantity,
+                                    isAddEnabled = quantity < product.stock,
+                                    onAdd = { viewModel.gehituProduktua(product.id) },
+                                    onRemove = { viewModel.kenduProduktua(product.id) }
+                                )
+                            }
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                // Right Side: Order Summary (30%)
+                Column(
+                    modifier = Modifier
+                        .weight(0.3f)
+                        .fillMaxHeight()
+                        .background(darkBrandColor)
+                        .padding(16.dp)
+                ) {
+                    Text(
+                        text = if (egoera.eskariaId != null) "Eskaria (Editatu)" else "Eskaria",
+                        color = Color.White,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
 
-                // Category Title
-                Text(
-                    text = egoera.kategoriaAukeratua,
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Black,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
-
-                // Product List
-                if (egoera.isLoading) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
-                    }
-                } else {
+                    // Cart Items
                     LazyColumn(
+                        modifier = Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        val filteredProducts = egoera.produktuak.filter { it.mota == egoera.kategoriaAukeratua }
-                        items(filteredProducts) { product ->
+                        val cartProducts = egoera.saskia.keys.mapNotNull { id -> viewModel.getProduktuaById(id) }
+                        items(cartProducts) { product ->
                             val quantity = egoera.saskia[product.id] ?: 0
-                            ProductItem(
+                            CartItem(
                                 product = product,
                                 quantity = quantity,
                                 isAddEnabled = quantity < product.stock,
@@ -246,66 +304,27 @@ fun EskariaSortuPantaila(
                             )
                         }
                     }
-                }
-            }
 
-            // Right Side: Order Summary (30%)
-            Column(
-                modifier = Modifier
-                    .weight(0.3f)
-                    .fillMaxHeight()
-                        .background(darkBrandColor)
-                    .padding(16.dp)
-            ) {
-                Text(
-                    text = if (egoera.eskariaId != null) "Eskaria (Editatu)" else "Eskaria",
-                    color = Color.White,
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                // Cart Items
-                LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    val cartProducts = egoera.saskia.keys.mapNotNull { id -> viewModel.getProduktuaById(id) }
-                    items(cartProducts) { product ->
-                        val quantity = egoera.saskia[product.id] ?: 0
-                        CartItem(
-                            product = product,
-                            quantity = quantity,
-                            isAddEnabled = quantity < product.stock,
-                            onAdd = { viewModel.gehituProduktua(product.id) },
-                            onRemove = { viewModel.kenduProduktua(product.id) }
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Send Button
-                Button(
-                    onClick = { 
-                        viewModel.bidaliEskaria {
-                            navController.popBackStack()
+                    // Send Button
+                    Button(
+                        onClick = { viewModel.bidaliEskaria() },
+                        colors = ButtonDefaults.buttonColors(containerColor = primaryColor),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        if (egoera.isLoading) {
+                            CircularProgressIndicator(color = Color.White)
+                        } else {
+                            Text(
+                                text = if (egoera.eskariaId != null) "Eguneratu" else "Bidali",
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = primaryColor),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    if (egoera.isLoading) {
-                        CircularProgressIndicator(color = Color.White)
-                    } else {
-                        Text(
-                            text = if (egoera.eskariaId != null) "Eguneratu" else "Bidali",
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold
-                        )
                     }
                 }
             }

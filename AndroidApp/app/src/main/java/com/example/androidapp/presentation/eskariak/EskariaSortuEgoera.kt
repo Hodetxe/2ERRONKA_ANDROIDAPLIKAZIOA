@@ -12,5 +12,7 @@ data class EskariaSortuEgoera(
     val erreserbak: List<ErreserbaDto> = emptyList(), // Available reservations
     val erreserbaId: Int? = null,
     val isLoading: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val successMessage: String? = null,
+    val isSuccess: Boolean = false
 )

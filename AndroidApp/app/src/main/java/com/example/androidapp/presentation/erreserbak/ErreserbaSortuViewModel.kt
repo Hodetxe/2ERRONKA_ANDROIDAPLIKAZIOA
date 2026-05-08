@@ -13,6 +13,7 @@ import com.example.androidapp.data.remote.MahaiakApi
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
+import java.util.Locale
 
 class ErreserbaSortuViewModel : ViewModel() {
 
@@ -108,7 +109,13 @@ class ErreserbaSortuViewModel : ViewModel() {
                 if (response.isSuccessful) {
                     state = state.copy(isLoading = false, isSuccess = true)
                 } else {
-                    state = state.copy(isLoading = false, error = "Errorea sortzean: ${response.code()}")
+                    val rawError = try {
+                        response.errorBody()?.string()
+                    } catch (e: Exception) {
+                        null
+                    }
+                    val msg = mapReservationError(response.code(), rawError)
+                    state = state.copy(isLoading = false, error = msg)
                 }
             }
 
@@ -120,5 +127,51 @@ class ErreserbaSortuViewModel : ViewModel() {
     
     fun resetSuccess() {
         state = state.copy(isSuccess = false)
+    }
+
+    private fun mapReservationError(code: Int, rawErrorBody: String?): String {
+        val extracted = extractErrorMessage(rawErrorBody)
+        val lowered = extracted?.lowercase(Locale.getDefault()).orEmpty()
+
+        if (
+            lowered.contains("maha") ||
+            lowered.contains("table") ||
+            lowered.contains("ocup") ||
+            lowered.contains("erreserb") ||
+            lowered.contains("reserva")
+        ) {
+            return if (extracted.isNullOrBlank()) {
+                "Ezin da erreserba sortu: mahaia okupatuta dago ordutegi horretan."
+            } else {
+                "Ezin da erreserba sortu: mahaia okupatuta dago ordutegi horretan. ($extracted)"
+            }
+        }
+
+        if (!extracted.isNullOrBlank()) return extracted
+
+        return when (code) {
+            400 -> "Ezin da erreserba sortu: datuak ez dira zuzenak."
+            401, 403 -> "Ezin da erreserba sortu: baimenik ez."
+            409 -> "Ezin da erreserba sortu: mahaia okupatuta dago ordutegi horretan."
+            else -> "Errorea erreserba sortzean: $code"
+        }
+    }
+
+    private fun extractErrorMessage(rawErrorBody: String?): String? {
+        val trimmed = rawErrorBody?.trim()?.takeIf { it.isNotBlank() } ?: return null
+
+        if (trimmed.startsWith("{")) {
+            try {
+                val obj = org.json.JSONObject(trimmed)
+                val keys = listOf("message", "error", "title", "detail")
+                for (k in keys) {
+                    val v = obj.optString(k, "").trim()
+                    if (v.isNotBlank()) return v
+                }
+            } catch (_: Exception) {
+            }
+        }
+
+        return trimmed
     }
 }

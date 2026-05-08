@@ -19,19 +19,22 @@ import com.example.androidapp.core.network.ApiClient
 import com.example.androidapp.core.SessionManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import java.security.MessageDigest
 import java.security.SecureRandom
-import java.io.BufferedReader
+import java.io.BufferedInputStream
+import java.io.BufferedOutputStream
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
-import java.io.InputStreamReader
-import java.io.OutputStreamWriter
-import java.io.PrintWriter
+import java.io.InputStream
+import java.io.OutputStream
 import java.net.Socket
+import java.security.KeyPairGenerator
+import java.security.PrivateKey
+import java.security.PublicKey
 import javax.crypto.Cipher
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
+import kotlin.math.min
 
 class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -45,29 +48,28 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         private set
 
     private var socket: Socket? = null
-    private var reader: BufferedReader? = null
-    private var writer: PrintWriter? = null
+    private var input: InputStream? = null
+    private var output: OutputStream? = null
     private var isListening = false
 
-    private val encryptionPrefix = "ENC:"
-    private val fileMetaPrefix = "FILEMETA:"
-    private val fileChunkPrefix = "FILECHUNK:"
-    private val fileEndPrefix = "FILEEND:"
     private val secureRandom = SecureRandom()
-    private val secretKey by lazy {
-        val keyBytes = MessageDigest.getInstance("SHA-256")
-            .digest("2ERRONKA_CHAT_PSK_v1".toByteArray(Charsets.UTF_8))
-            .copyOf(16)
-        SecretKeySpec(keyBytes, "AES")
-    }
+    private var sessionKey: SecretKeySpec? = null
 
     // Server configuration
     private val serverIp get() = ApiClient.CHAT_HOST
     private val serverPort get() = ApiClient.CHAT_PORT
 
+    private val motaHello: Byte = 1
+    private val motaGakoa: Byte = 2
+    private val motaTestua: Byte = 3
+    private val motaFitxategiHasiera: Byte = 4
+    private val motaFitxategiZatia: Byte = 5
+    private val motaFitxategiAmaiera: Byte = 6
+
+    private val maxPacketBytes = 16 * 1024 * 1024
+
     private data class FileMeta(
-        val id: String,
-        val sender: String,
+        val idKey: String,
         val fileName: String,
         val mimeType: String?,
         val sizeBytes: Long?
@@ -85,6 +87,14 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val pendingEchoLock = Any()
     private val pendingOwnEchoes = ArrayDeque<String>()
 
+    fun setUiError(message: String) {
+        connectionError = message
+    }
+
+    fun clearConnectionError() {
+        connectionError = null
+    }
+
     fun connect() {
         if (isConnected) return
 
@@ -92,23 +102,34 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 connectionError = null
                 socket = Socket(serverIp, serverPort)
-                val inputStream = socket?.getInputStream()
-                val outputStream = socket?.getOutputStream()
+                val rawIn = socket?.getInputStream()
+                val rawOut = socket?.getOutputStream()
 
-                if (inputStream != null && outputStream != null) {
-                    reader = BufferedReader(InputStreamReader(inputStream))
-                    writer = PrintWriter(OutputStreamWriter(outputStream), true)
+                if (rawIn == null || rawOut == null) throw IllegalStateException("Stream-ak null dira")
 
-                    val username = SessionManager.currentUser?.izena ?: "AndroidUser"
-                    writer?.println(encryptMessage("$username txat-ean sartu da!"))
+                input = BufferedInputStream(rawIn)
+                output = BufferedOutputStream(rawOut)
 
-                    launch(Dispatchers.Main) {
-                        isConnected = true
-                    }
-                    
-                    isListening = true
-                    startListening()
+                val (privateKey, publicKey) = sortuRsaGakoak()
+                val pem = publicKeyToPem(publicKey)
+                bidaliPaketea(motaHello, pem.toByteArray(Charsets.UTF_8))
+
+                val keyPacket = irakurriPaketea() ?: throw IllegalStateException("Ez da gako-paketerik jaso")
+                if (keyPacket.first != motaGakoa) throw IllegalStateException("Gako-paketea espero zen")
+
+                val aesKey = decryptAesKey(privateKey, keyPacket.second)
+                sessionKey = SecretKeySpec(aesKey, "AES")
+
+                val username = SessionManager.currentUser?.izena ?: "AndroidUser"
+                bidaliTestuaZifratuta("$username txat-ean sartu da!")
+
+                launch(Dispatchers.Main) {
+                    isConnected = true
+                    connectionError = null
                 }
+
+                isListening = true
+                startListening()
             } catch (e: Exception) {
                 e.printStackTrace()
                 launch(Dispatchers.Main) {
@@ -123,10 +144,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 while (isListening) {
-                    val line = reader?.readLine()
-                    if (line != null) {
-                        if (!handleFileProtocolLine(line)) {
-                            val plaintext = decryptIfNeeded(line)
+                    val packet = irakurriPaketea() ?: break
+
+                    when (packet.first) {
+                        motaTestua -> {
+                            val plaintext = desenkriptatuTestua(packet.second) ?: continue
                             if (!shouldSkipOwnEcho(plaintext)) {
                                 val message = parseMessage(plaintext)
                                 launch(Dispatchers.Main) {
@@ -134,14 +156,14 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                                 }
                             }
                         }
-                    } else {
-                        // Server closed connection
-                        disconnect()
-                        break
+                        motaFitxategiHasiera -> handleFileStart(packet.second)
+                        motaFitxategiZatia -> handleFileChunk(packet.second)
+                        motaFitxategiAmaiera -> handleFileEnd(packet.second)
                     }
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
+            } finally {
                 disconnect()
             }
         }
@@ -201,7 +223,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     )
                 }
 
-                writer?.println(encryptMessage(messageToSend))
+                bidaliTestuaZifratuta(messageToSend)
             } catch (e: Exception) {
                 e.printStackTrace()
                 launch(Dispatchers.Main) {
@@ -212,62 +234,67 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun sendFile(uri: Uri) {
-        if (!isConnected) return
+        if (!isConnected) {
+            connectionError = "Ez dago konektatuta."
+            return
+        }
 
         viewModelScope.launch(Dispatchers.IO) {
+            if (output == null) {
+                launch(Dispatchers.Main) {
+                    connectionError = "Ez dago konektatuta."
+                }
+                return@launch
+            }
+
             val app = getApplication<Application>()
             val contentResolver = app.contentResolver
 
-            val sender = SessionManager.currentUser?.izena ?: "AndroidUser"
-            val meta = buildFileMeta(uri, sender)
-                ?: run {
-                    launch(Dispatchers.Main) {
-                        connectionError = "Ezin da fitxategia irakurri."
-                    }
-                    return@launch
-                }
+            val (fileName, sizeBytes, mimeType) = buildOutgoingFileInfo(uri) ?: run {
+                launch(Dispatchers.Main) { connectionError = "Ezin da fitxategia irakurri." }
+                return@launch
+            }
 
-            if (meta.sizeBytes != null && meta.sizeBytes > maxFileBytes) {
+            if (sizeBytes != null && sizeBytes > maxFileBytes) {
                 launch(Dispatchers.Main) {
-                    connectionError = "Fitxategia handiegia da (${meta.sizeBytes} bytes)."
+                    connectionError = "Fitxategia handiegia da (${sizeBytes} bytes)."
                 }
                 return@launch
             }
 
             try {
-                val metaLine = fileMetaPrefix + android.util.Base64.encodeToString(
-                    metaToJson(meta).toByteArray(Charsets.UTF_8),
-                    android.util.Base64.NO_WRAP
-                )
-                writer?.println(metaLine)
+                val idBytes = ByteArray(16)
+                secureRandom.nextBytes(idBytes)
+                val startPayload = sortuFitxategiHasieraPayload(idBytes, fileName, sizeBytes ?: -1L)
+                bidaliPaketea(motaFitxategiHasiera, startPayload)
 
-                contentResolver.openInputStream(uri).use { input ->
-                    if (input == null) throw IllegalStateException("InputStream null")
-                    val buffer = ByteArray(8 * 1024)
+                contentResolver.openInputStream(uri).use { fileIn ->
+                    if (fileIn == null) throw IllegalStateException("InputStream null")
+                    val buffer = ByteArray(16 * 1024)
                     while (true) {
-                        val read = input.read(buffer)
+                        val read = fileIn.read(buffer)
                         if (read <= 0) break
-                        val chunkB64 = android.util.Base64.encodeToString(
-                            buffer.copyOf(read),
-                            android.util.Base64.NO_WRAP
-                        )
-                        writer?.println("$fileChunkPrefix${meta.id}:$chunkB64")
+                        val chunkPayload = ByteArray(16 + read)
+                        System.arraycopy(idBytes, 0, chunkPayload, 0, 16)
+                        System.arraycopy(buffer, 0, chunkPayload, 16, read)
+                        bidaliPaketea(motaFitxategiZatia, chunkPayload)
                     }
                 }
 
-                writer?.println("$fileEndPrefix${meta.id}")
+                bidaliPaketea(motaFitxategiAmaiera, idBytes)
 
+                val sender = SessionManager.currentUser?.izena ?: "AndroidUser"
                 launch(Dispatchers.Main) {
                     messages.add(
                         Message(
                             id = System.currentTimeMillis().toInt(),
-                            text = "${sender}: [FITXATEGIA] ${meta.fileName}",
+                            text = "${sender}: [FITXATEGIA] $fileName",
                             isMe = true,
                             senderIcon = Icons.Default.Person,
                             isFile = true,
-                            fileName = meta.fileName,
+                            fileName = fileName,
                             fileUri = uri,
-                            mimeType = meta.mimeType
+                            mimeType = mimeType
                         )
                     )
                 }
@@ -285,8 +312,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         
         try {
             socket?.close()
-            reader?.close()
-            writer?.close()
+            input?.close()
+            output?.close()
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -302,8 +329,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         socket = null
-        reader = null
-        writer = null
+        input = null
+        output = null
+        sessionKey = null
         
         viewModelScope.launch(Dispatchers.Main) {
             isConnected = false
@@ -313,67 +341,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     override fun onCleared() {
         super.onCleared()
         disconnect()
-    }
-
-    private fun encryptMessage(plaintext: String): String {
-        val iv = ByteArray(12)
-        secureRandom.nextBytes(iv)
-
-        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        cipher.init(Cipher.ENCRYPT_MODE, secretKey, GCMParameterSpec(128, iv))
-        val ciphertext = cipher.doFinal(plaintext.toByteArray(Charsets.UTF_8))
-
-        val combined = ByteArray(iv.size + ciphertext.size)
-        System.arraycopy(iv, 0, combined, 0, iv.size)
-        System.arraycopy(ciphertext, 0, combined, iv.size, ciphertext.size)
-
-        val b64 = android.util.Base64.encodeToString(combined, android.util.Base64.NO_WRAP)
-        return "$encryptionPrefix$b64"
-    }
-
-    private fun decryptIfNeeded(input: String): String {
-        if (!input.startsWith(encryptionPrefix)) return input
-
-        return try {
-            val b64 = input.removePrefix(encryptionPrefix)
-            val combined = android.util.Base64.decode(b64, android.util.Base64.NO_WRAP)
-            if (combined.size <= 12) return input
-
-            val iv = combined.copyOfRange(0, 12)
-            val ciphertext = combined.copyOfRange(12, combined.size)
-
-            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-            cipher.init(Cipher.DECRYPT_MODE, secretKey, GCMParameterSpec(128, iv))
-            val plaintextBytes = cipher.doFinal(ciphertext)
-            String(plaintextBytes, Charsets.UTF_8)
-        } catch (_: Exception) {
-            input
-        }
-    }
-
-    private fun handleFileProtocolLine(line: String): Boolean {
-        return when {
-            line.startsWith(fileMetaPrefix) -> {
-                handleFileMeta(line.removePrefix(fileMetaPrefix))
-                true
-            }
-            line.startsWith(fileChunkPrefix) -> {
-                val payload = line.removePrefix(fileChunkPrefix)
-                val sep = payload.indexOf(':')
-                if (sep > 0) {
-                    val id = payload.substring(0, sep)
-                    val b64 = payload.substring(sep + 1)
-                    handleFileChunk(id, b64)
-                }
-                true
-            }
-            line.startsWith(fileEndPrefix) -> {
-                val id = line.removePrefix(fileEndPrefix)
-                handleFileEnd(id)
-                true
-            }
-            else -> false
-        }
     }
 
     private fun shouldSkipOwnEcho(plaintext: String): Boolean {
@@ -393,35 +360,48 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         return false
     }
 
-    private fun handleFileMeta(metaB64: String) {
+    private fun handleFileStart(payload: ByteArray) {
+        if (payload.size < 16 + 4 + 8) return
+
+        val idBytes = payload.copyOfRange(0, 16)
+        val idKey = android.util.Base64.encodeToString(idBytes, android.util.Base64.NO_WRAP)
+
+        val nameLen = leInt(payload, 16)
+        if (nameLen < 0) return
+
+        val nameOffset = 16 + 4
+        val sizeOffset = nameOffset + nameLen
+        if (payload.size < sizeOffset + 8) return
+
+        val fileName = String(payload, nameOffset, nameLen, Charsets.UTF_8).ifBlank { "fitxategia" }
+        val sizeBytes = leLong(payload, sizeOffset).takeIf { it >= 0 }
+        if (sizeBytes != null && sizeBytes > maxFileBytes) return
+
         val app = getApplication<Application>()
-        val json = try {
-            val bytes = android.util.Base64.decode(metaB64, android.util.Base64.NO_WRAP)
-            String(bytes, Charsets.UTF_8)
-        } catch (_: Exception) {
-            return
-        }
-
-        val meta = jsonToMeta(json) ?: return
-        if (meta.sizeBytes != null && meta.sizeBytes > maxFileBytes) return
-
-        val tempFile = File(app.cacheDir, "chatfile_${meta.id}")
+        val tempFile = File(app.cacheDir, "chatfile_$idKey")
         runCatching { tempFile.delete() }
         val outputStream = FileOutputStream(tempFile, true)
 
-        runCatching { receivingFiles[meta.id]?.outputStream?.close() }
-        runCatching { receivingFiles[meta.id]?.tempFile?.delete() }
-        receivingFiles[meta.id] = ReceivingFile(meta, tempFile, outputStream, 0)
+        runCatching { receivingFiles[idKey]?.outputStream?.close() }
+        runCatching { receivingFiles[idKey]?.tempFile?.delete() }
+
+        val meta = FileMeta(
+            idKey = idKey,
+            fileName = fileName,
+            mimeType = null,
+            sizeBytes = sizeBytes
+        )
+        receivingFiles[idKey] = ReceivingFile(meta, tempFile, outputStream, 0)
     }
 
-    private fun handleFileChunk(id: String, chunkB64: String) {
-        val receiving = receivingFiles[id] ?: return
-        val bytes = try {
-            android.util.Base64.decode(chunkB64, android.util.Base64.NO_WRAP)
-        } catch (_: Exception) {
-            return
-        }
+    private fun handleFileChunk(payload: ByteArray) {
+        if (payload.size < 16) return
 
+        val idBytes = payload.copyOfRange(0, 16)
+        val idKey = android.util.Base64.encodeToString(idBytes, android.util.Base64.NO_WRAP)
+        val receiving = receivingFiles[idKey] ?: return
+
+        val bytes = payload.copyOfRange(16, payload.size)
         val newTotal = receiving.receivedBytes + bytes.size
         if (receiving.meta.sizeBytes != null && newTotal > receiving.meta.sizeBytes) return
         if (newTotal > maxFileBytes) return
@@ -433,8 +413,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun handleFileEnd(id: String) {
-        val receiving = receivingFiles.remove(id) ?: return
+    private fun handleFileEnd(payload: ByteArray) {
+        if (payload.size < 16) return
+        val idBytes = payload.copyOfRange(0, 16)
+        val idKey = android.util.Base64.encodeToString(idBytes, android.util.Base64.NO_WRAP)
+
+        val receiving = receivingFiles.remove(idKey) ?: return
         runCatching { receiving.outputStream.flush() }
         runCatching { receiving.outputStream.close() }
 
@@ -449,21 +433,14 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
         runCatching { receiving.tempFile.delete() }
 
-        val senderName = receiving.meta.sender
-        val icon = when {
-            senderName.contains("Sukaldari", ignoreCase = true) -> Icons.Default.Restaurant
-            senderName.contains("Zerbitzari", ignoreCase = true) -> Icons.Default.RoomService
-            else -> Icons.Default.Person
-        }
-
         if (savedUri != null) {
             viewModelScope.launch(Dispatchers.Main) {
                 messages.add(
                     Message(
                         id = System.currentTimeMillis().toInt(),
-                        text = "${senderName}: [FITXATEGIA] ${receiving.meta.fileName}",
+                        text = "Fitxategia: [FITXATEGIA] ${receiving.meta.fileName}",
                         isMe = false,
-                        senderIcon = icon,
+                        senderIcon = Icons.Default.Person,
                         isFile = true,
                         fileName = receiving.meta.fileName,
                         fileUri = savedUri,
@@ -474,7 +451,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun buildFileMeta(uri: Uri, sender: String): FileMeta? {
+    private fun buildOutgoingFileInfo(uri: Uri): Triple<String, Long?, String?>? {
         val app = getApplication<Application>()
         val cr = app.contentResolver
 
@@ -494,43 +471,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         val safeName = fileName?.takeIf { it.isNotBlank() } ?: "fitxategia"
-        val id = "${System.currentTimeMillis()}_${secureRandom.nextInt(1_000_000)}"
-
-        return FileMeta(
-            id = id,
-            sender = sender,
-            fileName = safeName,
-            mimeType = mimeType,
-            sizeBytes = sizeBytes
+        return Triple(
+            safeName,
+            sizeBytes?.takeIf { it > 0 },
+            mimeType?.takeIf { it.isNotBlank() }
         )
-    }
-
-    private fun metaToJson(meta: FileMeta): String {
-        val obj = org.json.JSONObject()
-        obj.put("id", meta.id)
-        obj.put("sender", meta.sender)
-        obj.put("fileName", meta.fileName)
-        if (meta.mimeType != null) obj.put("mimeType", meta.mimeType)
-        if (meta.sizeBytes != null) obj.put("sizeBytes", meta.sizeBytes)
-        return obj.toString()
-    }
-
-    private fun jsonToMeta(json: String): FileMeta? {
-        return runCatching {
-            val obj = org.json.JSONObject(json)
-            val id = obj.getString("id")
-            val sender = obj.getString("sender")
-            val fileName = obj.getString("fileName")
-            val mimeType = if (obj.has("mimeType")) obj.optString("mimeType", null) else null
-            val sizeBytes = if (obj.has("sizeBytes")) obj.optLong("sizeBytes") else null
-            FileMeta(
-                id = id,
-                sender = sender,
-                fileName = fileName,
-                mimeType = mimeType?.takeIf { it.isNotBlank() },
-                sizeBytes = sizeBytes?.takeIf { it > 0 }
-            )
-        }.getOrNull()
     }
 
     private fun saveToDownloads(tempFile: File, fileName: String, mimeType: String?): Uri? {
@@ -550,5 +495,165 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         } ?: return null
 
         return uri
+    }
+
+    private fun sortuRsaGakoak(): Pair<PrivateKey, PublicKey> {
+        val gen = KeyPairGenerator.getInstance("RSA")
+        gen.initialize(2048)
+        val pair = gen.generateKeyPair()
+        return pair.private to pair.public
+    }
+
+    private fun publicKeyToPem(publicKey: PublicKey): String {
+        val b64 = android.util.Base64.encodeToString(publicKey.encoded, android.util.Base64.NO_WRAP)
+        val sb = StringBuilder()
+        sb.append("-----BEGIN PUBLIC KEY-----\n")
+        var i = 0
+        while (i < b64.length) {
+            sb.append(b64.substring(i, min(i + 64, b64.length))).append('\n')
+            i += 64
+        }
+        sb.append("-----END PUBLIC KEY-----\n")
+        return sb.toString()
+    }
+
+    private fun decryptAesKey(privateKey: PrivateKey, encrypted: ByteArray): ByteArray {
+        val cipher = Cipher.getInstance("RSA/ECB/OAEPWithSHA-256AndMGF1Padding")
+        cipher.init(Cipher.DECRYPT_MODE, privateKey)
+        return cipher.doFinal(encrypted)
+    }
+
+    private fun bidaliTestuaZifratuta(testua: String) {
+        val payload = enkriptatuTestua(testua) ?: throw IllegalStateException("Ez dago saio-gakorik")
+        bidaliPaketea(motaTestua, payload)
+    }
+
+    private fun enkriptatuTestua(testua: String): ByteArray? {
+        val key = sessionKey ?: return null
+        val nonce = ByteArray(12)
+        secureRandom.nextBytes(nonce)
+
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.ENCRYPT_MODE, key, GCMParameterSpec(128, nonce))
+        val cipherPlusTag = cipher.doFinal(testua.toByteArray(Charsets.UTF_8))
+        if (cipherPlusTag.size < 16) return null
+
+        val cipherLen = cipherPlusTag.size - 16
+        val ciphertext = cipherPlusTag.copyOfRange(0, cipherLen)
+        val tag = cipherPlusTag.copyOfRange(cipherLen, cipherPlusTag.size)
+
+        val payload = ByteArray(nonce.size + tag.size + ciphertext.size)
+        System.arraycopy(nonce, 0, payload, 0, nonce.size)
+        System.arraycopy(tag, 0, payload, nonce.size, tag.size)
+        System.arraycopy(ciphertext, 0, payload, nonce.size + tag.size, ciphertext.size)
+        return payload
+    }
+
+    private fun desenkriptatuTestua(payload: ByteArray): String? {
+        val key = sessionKey ?: return null
+        if (payload.size < 12 + 16) return null
+
+        val nonce = payload.copyOfRange(0, 12)
+        val tag = payload.copyOfRange(12, 28)
+        val ciphertext = payload.copyOfRange(28, payload.size)
+
+        val combined = ByteArray(ciphertext.size + tag.size)
+        System.arraycopy(ciphertext, 0, combined, 0, ciphertext.size)
+        System.arraycopy(tag, 0, combined, ciphertext.size, tag.size)
+
+        return runCatching {
+            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+            cipher.init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(128, nonce))
+            val plaintext = cipher.doFinal(combined)
+            String(plaintext, Charsets.UTF_8)
+        }.getOrNull()
+    }
+
+    private fun bidaliPaketea(mota: Byte, payload: ByteArray) {
+        val out = output ?: throw IllegalStateException("Ez dago konektatuta")
+        if (payload.size > maxPacketBytes) throw IllegalArgumentException("Pakete handiegia")
+
+        synchronized(out) {
+            out.write(byteArrayOf(mota))
+            out.write(intToLeBytes(payload.size))
+            out.write(payload)
+            out.flush()
+        }
+    }
+
+    private fun irakurriPaketea(): Pair<Byte, ByteArray>? {
+        val `in` = input ?: return null
+
+        val typeInt = `in`.read()
+        if (typeInt == -1) return null
+        val lenBytes = readExact(`in`, 4) ?: return null
+        val len = leInt(lenBytes, 0)
+        if (len < 0 || len > maxPacketBytes) throw IllegalStateException("Pakete luzera baliogabea: $len")
+        val payload = readExact(`in`, len) ?: return null
+        return (typeInt.toByte() to payload)
+    }
+
+    private fun readExact(`in`: InputStream, size: Int): ByteArray? {
+        if (size == 0) return ByteArray(0)
+        val buf = ByteArray(size)
+        var off = 0
+        while (off < size) {
+            val read = `in`.read(buf, off, size - off)
+            if (read == -1) return null
+            off += read
+        }
+        return buf
+    }
+
+    private fun intToLeBytes(value: Int): ByteArray {
+        val b = ByteArray(4)
+        b[0] = (value and 0xFF).toByte()
+        b[1] = ((value ushr 8) and 0xFF).toByte()
+        b[2] = ((value ushr 16) and 0xFF).toByte()
+        b[3] = ((value ushr 24) and 0xFF).toByte()
+        return b
+    }
+
+    private fun longToLeBytes(value: Long): ByteArray {
+        val b = ByteArray(8)
+        b[0] = (value and 0xFF).toByte()
+        b[1] = ((value ushr 8) and 0xFF).toByte()
+        b[2] = ((value ushr 16) and 0xFF).toByte()
+        b[3] = ((value ushr 24) and 0xFF).toByte()
+        b[4] = ((value ushr 32) and 0xFF).toByte()
+        b[5] = ((value ushr 40) and 0xFF).toByte()
+        b[6] = ((value ushr 48) and 0xFF).toByte()
+        b[7] = ((value ushr 56) and 0xFF).toByte()
+        return b
+    }
+
+    private fun leInt(bytes: ByteArray, offset: Int): Int {
+        return (bytes[offset].toInt() and 0xFF) or
+            ((bytes[offset + 1].toInt() and 0xFF) shl 8) or
+            ((bytes[offset + 2].toInt() and 0xFF) shl 16) or
+            ((bytes[offset + 3].toInt() and 0xFF) shl 24)
+    }
+
+    private fun leLong(bytes: ByteArray, offset: Int): Long {
+        return (bytes[offset].toLong() and 0xFF) or
+            ((bytes[offset + 1].toLong() and 0xFF) shl 8) or
+            ((bytes[offset + 2].toLong() and 0xFF) shl 16) or
+            ((bytes[offset + 3].toLong() and 0xFF) shl 24) or
+            ((bytes[offset + 4].toLong() and 0xFF) shl 32) or
+            ((bytes[offset + 5].toLong() and 0xFF) shl 40) or
+            ((bytes[offset + 6].toLong() and 0xFF) shl 48) or
+            ((bytes[offset + 7].toLong() and 0xFF) shl 56)
+    }
+
+    private fun sortuFitxategiHasieraPayload(idBytes: ByteArray, fileName: String, sizeBytes: Long): ByteArray {
+        val nameBytes = fileName.toByteArray(Charsets.UTF_8)
+        val payload = ByteArray(16 + 4 + nameBytes.size + 8)
+        System.arraycopy(idBytes, 0, payload, 0, 16)
+        val lenBytes = intToLeBytes(nameBytes.size)
+        System.arraycopy(lenBytes, 0, payload, 16, 4)
+        System.arraycopy(nameBytes, 0, payload, 20, nameBytes.size)
+        val sizeLe = longToLeBytes(sizeBytes)
+        System.arraycopy(sizeLe, 0, payload, 20 + nameBytes.size, 8)
+        return payload
     }
 }

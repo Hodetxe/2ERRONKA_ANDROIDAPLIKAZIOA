@@ -35,9 +35,11 @@ fun ErreserbaSortuPantaila(
 ) {
     val state = viewModel.state
     val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(state.isSuccess) {
         if (state.isSuccess) {
+            snackbarHostState.showSnackbar(message = "Erreserba ondo sortu da", duration = SnackbarDuration.Short)
             navController.popBackStack()
             viewModel.resetSuccess()
         }
@@ -69,7 +71,8 @@ fun ErreserbaSortuPantaila(
                 title = "ERRESERBA BERRIA",
                 navController = navController
             )
-        }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
         Box(
             modifier = Modifier

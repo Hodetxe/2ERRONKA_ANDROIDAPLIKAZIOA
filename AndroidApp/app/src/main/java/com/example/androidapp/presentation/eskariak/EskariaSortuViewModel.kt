@@ -16,6 +16,7 @@ import com.example.androidapp.data.remote.EskariakApi
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
+import java.util.Locale
 
 class EskariaSortuViewModel : ViewModel() {
 
@@ -194,7 +195,15 @@ class EskariaSortuViewModel : ViewModel() {
         egoera = egoera.copy(erreserbaId = erreserbaId)
     }
 
-    fun bidaliEskaria(onSuccess: () -> Unit) {
+    fun clearError() {
+        egoera = egoera.copy(error = null)
+    }
+
+    fun clearSuccess() {
+        egoera = egoera.copy(isSuccess = false, successMessage = null)
+    }
+
+    fun bidaliEskaria() {
         val erreserbaId = egoera.erreserbaId
         if (erreserbaId == null) {
             egoera = egoera.copy(error = "Ez da erreserbarik aukeratu")
@@ -205,8 +214,23 @@ class EskariaSortuViewModel : ViewModel() {
             egoera = egoera.copy(error = "Saskia hutsik dago")
             return
         }
+
+        val insufficientStock = egoera.saskia.entries.firstOrNull { (prodId, qty) ->
+            val stock = getProduktuaById(prodId)?.stock ?: 0
+            qty > stock
+        }
+        if (insufficientStock != null) {
+            val prodName = getProduktuaById(insufficientStock.key)?.izena ?: "Produktu bat"
+            egoera = egoera.copy(
+                isLoading = false,
+                error = "Ezin da eskaria egin: \"$prodName\" stock-a agortu da.",
+                isSuccess = false,
+                successMessage = null
+            )
+            return
+        }
         
-        egoera = egoera.copy(isLoading = true)
+        egoera = egoera.copy(isLoading = true, error = null, isSuccess = false, successMessage = null)
         
         val produktuakSortu = egoera.saskia.map { (prodId, quantity) ->
             val prod = getProduktuaById(prodId)
@@ -237,18 +261,84 @@ class EskariaSortuViewModel : ViewModel() {
                 if (response.isSuccessful) {
                     val mezua = if (egoera.eskariaId != null) "Eskaria ondo eguneratu da" else "Eskaria ondo sortu da"
                     android.util.Log.d("EskariaSortuViewModel", mezua)
-                    egoera = egoera.copy(saskia = emptyMap(), isLoading = false, eskariaId = null)
-                    onSuccess()
+                    egoera = egoera.copy(
+                        saskia = emptyMap(),
+                        isLoading = false,
+                        eskariaId = null,
+                        error = null,
+                        isSuccess = true,
+                        successMessage = mezua
+                    )
                 } else {
-                    val mezua = if (egoera.eskariaId != null) "Errorea eskaria eguneratzean" else "Errorea eskaria sortzean"
-                    android.util.Log.e("EskariaSortuViewModel", "$mezua: ${response.code()}")
-                    egoera = egoera.copy(isLoading = false, error = "$mezua: ${response.code()}")
+                    val rawError = try {
+                        response.errorBody()?.string()
+                    } catch (e: Exception) {
+                        null
+                    }
+                    val mezua = mapOrderError(response.code(), rawError)
+                    android.util.Log.e("EskariaSortuViewModel", "Errorea eskaria bidaltzean: ${response.code()} - ${rawError ?: "no-body"}")
+                    egoera = egoera.copy(isLoading = false, error = mezua, isSuccess = false, successMessage = null)
                 }
             }
             override fun onFailure(call: Call<Any>, t: Throwable) {
                 android.util.Log.e("EskariaSortuViewModel", "Network error: ${t.message}")
-                egoera = egoera.copy(isLoading = false, error = "Konexio errorea: ${t.message}")
+                egoera = egoera.copy(isLoading = false, error = "Konexio errorea: ${t.message}", isSuccess = false, successMessage = null)
             }
         })
+    }
+
+    private fun mapOrderError(code: Int, rawErrorBody: String?): String {
+        val extracted = extractErrorMessage(rawErrorBody)
+        val lowered = extracted?.lowercase(Locale.getDefault()).orEmpty()
+
+        if (lowered.contains("osagai") || lowered.contains("ingred")) {
+            return if (extracted.isNullOrBlank()) {
+                "Ezin da eskaria egin: osagaiak agortu dira."
+            } else {
+                "Ezin da eskaria egin: osagaiak agortu dira. ($extracted)"
+            }
+        }
+
+        if (
+            lowered.contains("stock") ||
+            lowered.contains("existenc") ||
+            lowered.contains("agot") ||
+            lowered.contains("produktu") ||
+            lowered.contains("producto")
+        ) {
+            return if (extracted.isNullOrBlank()) {
+                "Ezin da eskaria egin: produktu baten stock-a agortu da."
+            } else {
+                "Ezin da eskaria egin: produktu baten stock-a agortu da. ($extracted)"
+            }
+        }
+
+        if (!extracted.isNullOrBlank()) return extracted
+
+        return when (code) {
+            400 -> "Ezin da eskaria egin: datuak ez dira zuzenak."
+            401, 403 -> "Ezin da eskaria egin: baimenik ez."
+            404 -> "Ezin da eskaria egin: baliabidea ez da aurkitu."
+            409 -> "Ezin da eskaria egin: stock/osagai arazoa dago."
+            else -> "Errorea eskaria bidaltzean: $code"
+        }
+    }
+
+    private fun extractErrorMessage(rawErrorBody: String?): String? {
+        val trimmed = rawErrorBody?.trim()?.takeIf { it.isNotBlank() } ?: return null
+
+        if (trimmed.startsWith("{")) {
+            try {
+                val obj = org.json.JSONObject(trimmed)
+                val keys = listOf("message", "error", "title", "detail")
+                for (k in keys) {
+                    val v = obj.optString(k, "").trim()
+                    if (v.isNotBlank()) return v
+                }
+            } catch (_: Exception) {
+            }
+        }
+
+        return trimmed
     }
 }

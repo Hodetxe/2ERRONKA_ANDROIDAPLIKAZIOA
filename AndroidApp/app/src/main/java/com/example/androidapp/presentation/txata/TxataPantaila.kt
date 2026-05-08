@@ -71,6 +71,7 @@ fun TxataPantaila(
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     val emojis = remember { listOf("😀", "😂", "😍", "👍", "🙏", "☕", "🍔", "✅", "❗") }
     val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
 
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
@@ -83,9 +84,17 @@ fun TxataPantaila(
                     )
                 }
                 viewModel.sendFile(uri)
+            } else {
+                viewModel.setUiError("Ez da fitxategirik aukeratu.")
             }
         }
     )
+
+    LaunchedEffect(viewModel.connectionError) {
+        val msg = viewModel.connectionError ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(message = msg, actionLabel = "ITXI", duration = SnackbarDuration.Short)
+        viewModel.clearConnectionError()
+    }
 
     // Auto-scroll to bottom when new messages arrive
     LaunchedEffect(messages.size) {
@@ -114,7 +123,8 @@ fun TxataPantaila(
                 navController = navController,
                 titleIcon = headerIcon
             )
-        }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -203,7 +213,11 @@ fun TxataPantaila(
                     IconButton(
                         onClick = {
                             keyboardController?.hide()
-                            filePickerLauncher.launch(arrayOf("*/*"))
+                            runCatching {
+                                filePickerLauncher.launch(arrayOf("*/*"))
+                            }.onFailure {
+                                viewModel.setUiError("Ezin da fitxategi-aukeratzailea ireki gailu honetan.")
+                            }
                         }
                     ) {
                         Icon(
